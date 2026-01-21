@@ -17,7 +17,7 @@
 
 ```bash
 # Клонируйте репозиторий
-git clone https://github.com/example/instnoth.git
+git clone https://github.com/Arigadam/instnoth.git
 cd instnoth
 
 # Соберите проект
