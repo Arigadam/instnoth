@@ -1,0 +1,319 @@
+# ========================================
+# Docker Engine Installation Script
+# Файл установки для InstNoth
+# Используйте --verbose для подробного вывода
+# ========================================
+
+package: "Docker Engine"
+version: "24.0.7"
+description: "Контейнерная платформа Docker с Docker Compose"
+author: "Docker, Inc."
+
+# ----------------------------------------
+# Фаза 1: Детекция системы
+# ----------------------------------------
+phase "Анализ системы" {
+    message "Определение конфигурации системы..."
+    delay 200
+    
+    detect_os
+    detect_kernel
+    detect_cpu
+    detect_memory
+    detect_disk
+    
+    progress 5
+    success "Конфигурация определена"
+}
+
+# ----------------------------------------
+# Фаза 2: Проверка совместимости
+# ----------------------------------------
+phase "Проверка совместимости" {
+    message "Проверка поддержки виртуализации..."
+    delay 400
+    
+    run_test "CPU virtualization (VT-x/AMD-V)" duration=500
+    message "  CPU flags: vmx (Intel VT-x поддерживается)"
+    delay 100
+    
+    run_test "KVM support" duration=300
+    message "  KVM: доступен"
+    delay 100
+    
+    message "Проверка версии ядра..."
+    detect_kernel
+    delay 200
+    
+    check_dep "iptables"
+    check_dep "ca-certificates"
+    check_dep "curl"
+    check_dep "gnupg"
+    check_dep "lsb-release"
+    
+    message "Проверка конфликтующих пакетов..."
+    delay 300
+    warning "Обнаружен пакет: docker.io (будет удалён)"
+    delay 100
+    
+    progress 15
+    success "Система совместима с Docker"
+}
+
+# ----------------------------------------
+# Фаза 3: Удаление старых версий
+# ----------------------------------------
+phase "Удаление старых версий" {
+    message "Остановка существующих Docker сервисов..."
+    delay 400
+    stop_service "docker.socket"
+    stop_service "docker.service"
+    stop_service "containerd.service"
+    
+    message "Удаление устаревших пакетов..."
+    delay 300
+    message "  Удаление docker.io..."
+    delay 200
+    message "  Удаление docker-compose..."
+    delay 200
+    message "  Удаление containerd..."
+    delay 200
+    message "  Удаление runc..."
+    delay 100
+    
+    cleanup
+    
+    progress 25
+    success "Старые версии удалены"
+}
+
+# ----------------------------------------
+# Фаза 4: Настройка репозитория
+# ----------------------------------------
+phase "Настройка репозитория Docker" {
+    message "Создание директории для ключей..."
+    create_dir "/etc/apt/keyrings"
+    set_permission "/etc/apt/keyrings" mode="755"
+    
+    message "Загрузка GPG ключа Docker..."
+    delay 300
+    
+    download "https://download.docker.com/linux/ubuntu/gpg" size=3072
+    
+    message "Импорт ключа в систему..."
+    delay 200
+    run_script "gpg --dearmor -o /etc/apt/keyrings/docker.gpg"
+    set_permission "/etc/apt/keyrings/docker.gpg" mode="644"
+    
+    verify_signature "/etc/apt/keyrings/docker.gpg"
+    
+    progress 35
+    
+    message "Добавление репозитория Docker..."
+    delay 300
+    
+    write_config "/etc/apt/sources.list.d/docker.list" content="deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable"
+    set_permission "/etc/apt/sources.list.d/docker.list" mode="644"
+    
+    message "Обновление индекса пакетов..."
+    delay 500
+    run_script "apt-get update"
+    
+    progress 45
+    success "Репозиторий настроен"
+}
+
+# ----------------------------------------
+# Фаза 5: Загрузка пакетов
+# ----------------------------------------
+phase "Загрузка пакетов Docker" {
+    message "Загрузка containerd.io..."
+    download "https://download.docker.com/linux/ubuntu/pool/stable/amd64/containerd.io_1.6.26-1_amd64.deb" size=30720
+    check_integrity "/tmp/containerd.io_1.6.26-1_amd64.deb"
+    
+    message "Загрузка docker-ce-cli..."
+    download "https://download.docker.com/linux/ubuntu/pool/stable/amd64/docker-ce-cli_24.0.7-1~ubuntu.22.04~jammy_amd64.deb" size=14336
+    check_integrity "/tmp/docker-ce-cli_24.0.7-1~ubuntu.22.04~jammy_amd64.deb"
+    
+    message "Загрузка docker-ce..."
+    download "https://download.docker.com/linux/ubuntu/pool/stable/amd64/docker-ce_24.0.7-1~ubuntu.22.04~jammy_amd64.deb" size=25088
+    check_integrity "/tmp/docker-ce_24.0.7-1~ubuntu.22.04~jammy_amd64.deb"
+    
+    message "Загрузка docker-buildx-plugin..."
+    download "https://download.docker.com/linux/ubuntu/pool/stable/amd64/docker-buildx-plugin_0.11.2-1~ubuntu.22.04~jammy_amd64.deb" size=32768
+    
+    message "Загрузка docker-compose-plugin..."
+    download "https://download.docker.com/linux/ubuntu/pool/stable/amd64/docker-compose-plugin_2.21.0-1~ubuntu.22.04~jammy_amd64.deb" size=12800
+    
+    progress 60
+    success "Все пакеты загружены"
+}
+
+# ----------------------------------------
+# Фаза 6: Установка пакетов
+# ----------------------------------------
+phase "Установка пакетов" {
+    message "Установка containerd.io..."
+    delay 300
+    install_dep "containerd.io" version="1.6.26"
+    
+    message "Установка docker-ce-cli..."
+    delay 300
+    install_dep "docker-ce-cli" version="24.0.7"
+    
+    message "Установка docker-ce..."
+    delay 400
+    install_dep "docker-ce" version="24.0.7"
+    
+    message "Установка docker-buildx-plugin..."
+    delay 300
+    install_dep "docker-buildx-plugin" version="0.11.2"
+    
+    message "Установка docker-compose-plugin..."
+    delay 300
+    install_dep "docker-compose-plugin" version="2.21.0"
+    
+    progress 75
+    success "Все пакеты установлены"
+}
+
+# ----------------------------------------
+# Фаза 7: Конфигурация Docker
+# ----------------------------------------
+phase "Конфигурация Docker" {
+    message "Создание группы docker..."
+    delay 200
+    run_script "groupadd -f docker"
+    
+    message "Добавление пользователя в группу docker..."
+    delay 200
+    create_user "$USER" groups="docker"
+    
+    message "Создание директорий..."
+    delay 100
+    create_dir "/etc/docker"
+    create_dir "/var/lib/docker"
+    create_dir "/var/lib/docker/overlay2"
+    create_dir "/var/lib/containerd"
+    set_permission "/var/lib/docker" mode="710"
+    
+    message "Настройка daemon.json..."
+    delay 300
+    write_config "/etc/docker/daemon.json" content="{\n  \"storage-driver\": \"overlay2\",\n  \"log-driver\": \"json-file\",\n  \"log-opts\": {\n    \"max-size\": \"10m\",\n    \"max-file\": \"3\"\n  },\n  \"default-address-pools\": [\n    {\"base\": \"172.17.0.0/16\", \"size\": 24}\n  ]\n}"
+    set_permission "/etc/docker/daemon.json" mode="644"
+    
+    configure key="storage-driver" value="overlay2"
+    configure key="log-driver" value="json-file"
+    configure key="cgroup-driver" value="systemd"
+    configure key="live-restore" value="true"
+    
+    progress 85
+    success "Docker настроен"
+}
+
+# ----------------------------------------
+# Фаза 8: Загрузка модулей ядра
+# ----------------------------------------
+phase "Настройка модулей ядра" {
+    message "Загрузка необходимых модулей..."
+    delay 200
+    
+    load_module "overlay"
+    load_module "br_netfilter"
+    load_module "ip_tables"
+    load_module "iptable_nat"
+    load_module "iptable_filter"
+    
+    message "Настройка sysctl параметров..."
+    delay 200
+    configure key="net.bridge.bridge-nf-call-iptables" value="1"
+    configure key="net.bridge.bridge-nf-call-ip6tables" value="1"
+    configure key="net.ipv4.ip_forward" value="1"
+    
+    run_script "sysctl --system"
+    
+    progress 88
+    success "Модули ядра настроены"
+}
+
+# ----------------------------------------
+# Фаза 9: Запуск сервисов
+# ----------------------------------------
+phase "Запуск сервисов" {
+    message "Перезагрузка systemd..."
+    delay 300
+    run_script "systemctl daemon-reload"
+    
+    message "Включение Docker для автозапуска..."
+    delay 200
+    enable_service "docker.service"
+    enable_service "containerd.service"
+    
+    message "Запуск containerd..."
+    delay 300
+    start_service "containerd"
+    
+    message "Запуск Docker Engine..."
+    delay 500
+    start_service "docker"
+    
+    message "Ожидание готовности Docker..."
+    delay 800
+    run_test "docker.socket ready" duration=500
+    message "  Docker daemon запущен (PID: 12847)"
+    delay 100
+    
+    progress 95
+    success "Docker сервис запущен"
+}
+
+# ----------------------------------------
+# Фаза 10: Верификация установки
+# ----------------------------------------
+phase "Проверка установки" {
+    message "Проверка целостности установки..."
+    check_integrity "/usr/bin/docker"
+    check_integrity "/usr/bin/containerd"
+    check_integrity "/etc/docker/daemon.json"
+    
+    message "Запуск тестового контейнера..."
+    delay 300
+    
+    message "  Pulling image hello-world:latest..."
+    delay 400
+    message "    latest: Pulling from library/hello-world"
+    delay 100
+    message "    719385e32844: Pull complete"
+    delay 200
+    message "    Digest: sha256:c79d06dfdfd3d3eb04cafd0dc2bacab0992ebc243e083cabe208bac4dd7759e0"
+    delay 100
+    message "    Status: Downloaded newer image for hello-world:latest"
+    delay 100
+    
+    message "  Запуск контейнера..."
+    delay 300
+    message "    Hello from Docker!"
+    delay 100
+    message "    This message shows that your installation appears to be working correctly."
+    delay 100
+    
+    message "Очистка тестового контейнера..."
+    delay 200
+    cleanup
+    
+    message "Информация о системе Docker:"
+    delay 200
+    message "  Client: Docker Engine - Community 24.0.7"
+    delay 50
+    message "  Server: Docker Engine - Community 24.0.7"
+    delay 50
+    message "  containerd: 1.6.26"
+    delay 50
+    message "  runc: 1.1.10"
+    delay 50
+    message "  docker-init: 0.19.0"
+    delay 100
+    
+    progress 100
+    success "Docker Engine 24.0.7 успешно установлен и работает!"
+}

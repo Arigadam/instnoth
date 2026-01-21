@@ -1,0 +1,266 @@
+# ========================================
+# Node.js 20 LTS Installation Script
+# Файл установки для InstNoth
+# Используйте --verbose для подробного вывода
+# ========================================
+
+package: "Node.js"
+version: "20.10.0"
+description: "Серверная платформа JavaScript с npm пакетным менеджером"
+author: "OpenJS Foundation"
+
+# ----------------------------------------
+# Фаза 1: Анализ системы
+# ----------------------------------------
+phase "Анализ системы" {
+    message "Определение конфигурации системы..."
+    delay 200
+    
+    detect_os
+    detect_cpu
+    detect_memory
+    detect_disk
+    
+    message "Проверка архитектуры процессора..."
+    delay 200
+    message "Архитектура: x86_64 (amd64)"
+    delay 100
+    
+    message "Проверка версии glibc..."
+    delay 200
+    check_dep "glibc"
+    message "glibc версия: 2.35"
+    delay 100
+    
+    progress 10
+    success "Система совместима с Node.js 20"
+}
+
+# ----------------------------------------
+# Фаза 2: Предварительная проверка
+# ----------------------------------------
+phase "Предварительная проверка" {
+    check_dep "curl"
+    check_dep "tar"
+    check_dep "xz-utils"
+    check_dep "ca-certificates"
+    
+    message "Проверка существующей установки Node.js..."
+    delay 300
+    warning "Обнаружена предыдущая версия: Node.js 18.17.0"
+    message "Предыдущая версия будет заменена"
+    delay 200
+    
+    progress 15
+    success "Проверка завершена"
+}
+
+# ----------------------------------------
+# Фаза 3: Загрузка
+# ----------------------------------------
+phase "Загрузка Node.js" {
+    message "Выбор зеркала загрузки..."
+    delay 300
+    message "Используется: https://nodejs.org/dist/"
+    delay 100
+    
+    download "https://nodejs.org/dist/v20.10.0/node-v20.10.0-linux-x64.tar.xz" size=25600
+    
+    message "Загрузка SHASUMS256.txt..."
+    download "https://nodejs.org/dist/v20.10.0/SHASUMS256.txt.asc" size=3200
+    
+    progress 35
+    
+    message "Проверка GPG подписи..."
+    verify_signature "/tmp/SHASUMS256.txt.asc"
+    delay 200
+    
+    message "Проверка контрольной суммы..."
+    check_integrity "/tmp/node-v20.10.0-linux-x64.tar.xz"
+    
+    progress 40
+    success "Файлы проверены"
+}
+
+# ----------------------------------------
+# Фаза 4: Подготовка директорий
+# ----------------------------------------
+phase "Подготовка установки" {
+    message "Создание директорий..."
+    delay 100
+    
+    create_dir "/usr/local/node"
+    create_dir "/usr/local/node/bin"
+    create_dir "/usr/local/node/lib"
+    create_dir "/usr/local/node/include"
+    create_dir "/usr/local/node/share"
+    create_dir "/usr/local/lib/node_modules"
+    
+    message "Удаление предыдущей версии..."
+    delay 300
+    message "  Удаление /usr/local/bin/node"
+    delay 50
+    message "  Удаление /usr/local/bin/npm"
+    delay 50
+    message "  Удаление /usr/local/bin/npx"
+    delay 50
+    
+    cleanup
+    
+    progress 50
+    success "Подготовка завершена"
+}
+
+# ----------------------------------------
+# Фаза 5: Распаковка и установка
+# ----------------------------------------
+phase "Установка файлов" {
+    message "Распаковка архива..."
+    delay 200
+    
+    extract "/tmp/node-v20.10.0-linux-x64.tar.xz" to="/usr/local/node"
+    
+    progress 60
+    
+    message "Копирование бинарных файлов..."
+    delay 200
+    
+    copy_file "/usr/local/node/bin/node" to="/usr/local/bin/node"
+    set_permission "/usr/local/bin/node" mode="755"
+    delay 100
+    
+    copy_file "/usr/local/node/bin/npm" to="/usr/local/bin/npm"
+    set_permission "/usr/local/bin/npm" mode="755"
+    delay 100
+    
+    copy_file "/usr/local/node/bin/npx" to="/usr/local/bin/npx"
+    set_permission "/usr/local/bin/npx" mode="755"
+    delay 100
+    
+    copy_file "/usr/local/node/bin/corepack" to="/usr/local/bin/corepack"
+    set_permission "/usr/local/bin/corepack" mode="755"
+    
+    progress 70
+    
+    message "Установка библиотек..."
+    delay 300
+    copy_file "/usr/local/node/lib/node_modules/*" to="/usr/local/lib/node_modules/"
+    
+    progress 75
+    
+    message "Установка заголовочных файлов..."
+    delay 200
+    copy_file "/usr/local/node/include/node/*" to="/usr/local/include/node/"
+    
+    progress 80
+    success "Файлы установлены"
+}
+
+# ----------------------------------------
+# Фаза 6: Настройка npm
+# ----------------------------------------
+phase "Настройка npm" {
+    message "Инициализация npm..."
+    delay 300
+    
+    create_dir "~/.npm"
+    create_dir "~/.npm/_cache"
+    create_dir "~/.npm/_logs"
+    
+    configure key="prefix" value="/usr/local"
+    configure key="cache" value="~/.npm/_cache"
+    configure key="registry" value="https://registry.npmjs.org/"
+    configure key="audit" value="true"
+    configure key="fund" value="false"
+    
+    write_config "/usr/local/etc/npmrc" content="prefix=/usr/local\nregistry=https://registry.npmjs.org/\naudit=true"
+    set_permission "/usr/local/etc/npmrc" mode="644"
+    
+    progress 85
+    
+    message "Обновление npm до последней версии..."
+    delay 400
+    run_script "npm install -g npm@latest"
+    message "npm обновлён до версии 10.2.4"
+    delay 100
+    
+    progress 88
+    success "npm настроен"
+}
+
+# ----------------------------------------
+# Фаза 7: Тестирование
+# ----------------------------------------
+phase "Тестирование установки" {
+    message "Проверка работоспособности..."
+    delay 200
+    
+    run_test "node --version" duration=200
+    run_test "npm --version" duration=200
+    run_test "node -e 'console.log(1+1)'" duration=300
+    run_test "npm config list" duration=300
+    
+    progress 92
+    success "Тесты пройдены"
+}
+
+# ----------------------------------------
+# Фаза 8: Установка глобальных инструментов
+# ----------------------------------------
+phase "Установка инструментов" {
+    message "Установка рекомендуемых глобальных пакетов..."
+    delay 200
+    
+    message "  Установка yarn..."
+    delay 300
+    install_dep "yarn" version="1.22.21"
+    
+    message "  Установка typescript..."
+    delay 300
+    install_dep "typescript" version="5.3.2"
+    
+    message "  Установка ts-node..."
+    delay 200
+    install_dep "ts-node" version="10.9.2"
+    
+    message "  Установка nodemon..."
+    delay 200
+    install_dep "nodemon" version="3.0.2"
+    
+    progress 97
+    success "Инструменты установлены"
+}
+
+# ----------------------------------------
+# Фаза 9: Финализация
+# ----------------------------------------
+phase "Завершение" {
+    message "Очистка временных файлов..."
+    cleanup
+    delay 200
+    
+    message "Обновление переменных окружения..."
+    delay 100
+    configure key="PATH" value="/usr/local/bin:$PATH"
+    configure key="NODE_PATH" value="/usr/local/lib/node_modules"
+    
+    message "Проверка целостности..."
+    check_integrity "/usr/local/bin/node"
+    check_integrity "/usr/local/bin/npm"
+    
+    message "Финальная проверка установки..."
+    delay 300
+    message "  node --version: v20.10.0"
+    delay 100
+    message "  npm --version: 10.2.4"
+    delay 100
+    message "  npx --version: 10.2.4"
+    delay 100
+    message "  yarn --version: 1.22.21"
+    delay 100
+    message "  tsc --version: 5.3.2"
+    delay 100
+    
+    progress 100
+    success "Node.js 20.10.0 LTS успешно установлен!"
+}

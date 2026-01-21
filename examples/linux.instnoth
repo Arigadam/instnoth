@@ -1,0 +1,610 @@
+# ============================================================================
+#                     ARCH LINUX INSTALLATION SCRIPT
+#                        Полная установка системы
+#              Используйте --verbose для подробного вывода
+# ============================================================================
+
+package: "Arch Linux"
+version: "2024.01.01"
+description: "Минималистичный дистрибутив Linux с rolling-release обновлениями"
+author: "Arch Linux Team"
+
+# ============================================================================
+# ФАЗА 1: ИНИЦИАЛИЗАЦИЯ ЗАГРУЗОЧНОЙ СРЕДЫ
+# ============================================================================
+phase "Инициализация загрузочной среды" {
+    message "══════════════════════════════════════════════════════════════"
+    message "         ARCH LINUX INSTALLER - Начало установки"
+    message "══════════════════════════════════════════════════════════════"
+    delay 500
+    
+    message "Проверка режима загрузки..."
+    detect_bios
+    delay 300
+    
+    message "Проверка сетевого подключения..."
+    detect_network
+    delay 200
+    
+    message "Синхронизация системных часов..."
+    sync_time
+    
+    message "Проверка загрузочного носителя..."
+    check_integrity "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux"
+    verify_signature "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux.sig"
+    
+    progress 5
+    success "Загрузочная среда готова"
+}
+
+# ============================================================================
+# ФАЗА 2: ДЕТЕКЦИЯ ОБОРУДОВАНИЯ
+# ============================================================================
+phase "Детекция оборудования" {
+    message "Запуск полного сканирования оборудования..."
+    delay 300
+    
+    scan_hardware
+    delay 200
+    
+    detect_cpu
+    delay 100
+    
+    detect_memory
+    delay 100
+    
+    detect_disk
+    delay 100
+    
+    detect_gpu
+    delay 100
+    
+    detect_kernel
+    delay 200
+    
+    progress 10
+    success "Оборудование определено"
+}
+
+# ============================================================================
+# ФАЗА 3: ОПРЕДЕЛЕНИЕ И ЗАГРУЗКА ДРАЙВЕРОВ
+# ============================================================================
+phase "Анализ и загрузка драйверов" {
+    message "Определение необходимых драйверов для оборудования..."
+    delay 300
+    
+    detect_drivers
+    delay 200
+    
+    message "Загрузка базовых модулей ядра..."
+    load_module "nvme"
+    load_module "ahci"
+    load_module "xhci_hcd"
+    load_module "ehci_hcd"
+    load_module "usbhid"
+    load_module "hid_generic"
+    
+    message "Загрузка модулей файловых систем..."
+    load_module "ext4"
+    load_module "vfat"
+    load_module "btrfs"
+    
+    message "Загрузка графических модулей..."
+    load_module "i915"
+    load_module "amdgpu"
+    load_module "nouveau"
+    
+    message "Загрузка звуковых модулей..."
+    load_module "snd_hda_intel"
+    load_module "snd_hda_codec_realtek"
+    
+    progress 15
+    success "Драйверы загружены"
+}
+
+# ============================================================================
+# ФАЗА 4: ТЕСТИРОВАНИЕ ОБОРУДОВАНИЯ
+# ============================================================================
+phase "Тестирование оборудования" {
+    message "Выполнение тестов оборудования..."
+    delay 300
+    
+    run_test "Тест памяти (Quick)" duration=800
+    run_test "Тест дисковой подсистемы" duration=600
+    run_test "Тест сетевого интерфейса" duration=400
+    run_test "Тест USB контроллеров" duration=300
+    run_test "Тест PCI шины" duration=300
+    
+    message "Проверка температурных датчиков..."
+    delay 200
+    message "  CPU: 42°C (норма: <85°C)"
+    delay 50
+    message "  GPU: 38°C (норма: <90°C)"
+    delay 50
+    message "  NVMe: 35°C (норма: <70°C)"
+    delay 100
+    
+    message "Быстрый бенчмарк системы..."
+    benchmark_cpu
+    benchmark_memory
+    benchmark_disk
+    
+    progress 22
+    success "Тесты оборудования пройдены"
+}
+
+# ============================================================================
+# ФАЗА 5: РАЗМЕТКА ДИСКА
+# ============================================================================
+phase "Разметка диска" {
+    message "Подготовка диска к установке..."
+    delay 300
+    
+    warning "ВНИМАНИЕ: Все данные на /dev/nvme0n1 будут уничтожены!"
+    delay 500
+    
+    message "Очистка существующих разделов..."
+    run_script "wipefs -a /dev/nvme0n1"
+    delay 300
+    
+    message "Создание таблицы разделов GPT..."
+    run_script "parted /dev/nvme0n1 mklabel gpt"
+    delay 300
+    
+    message "Создание EFI раздела (512MB)..."
+    create_partition "/dev/nvme0n1p1" size="512MiB"
+    format "/dev/nvme0n1p1" fs="vfat"
+    set_permission "/dev/nvme0n1p1" mode="boot,esp"
+    delay 200
+    
+    message "Создание раздела подкачки (16GB)..."
+    create_partition "/dev/nvme0n1p2" size="16GiB"
+    format "/dev/nvme0n1p2" fs="swap"
+    delay 200
+    
+    message "Создание корневого раздела (100GB)..."
+    create_partition "/dev/nvme0n1p3" size="100GiB"
+    format "/dev/nvme0n1p3" fs="ext4"
+    delay 400
+    
+    message "Создание home раздела (остаток)..."
+    create_partition "/dev/nvme0n1p4" size="100%"
+    format "/dev/nvme0n1p4" fs="ext4"
+    delay 400
+    
+    message "Проверка разделов..."
+    check_integrity "/dev/nvme0n1p1"
+    check_integrity "/dev/nvme0n1p2"
+    check_integrity "/dev/nvme0n1p3"
+    check_integrity "/dev/nvme0n1p4"
+    
+    progress 32
+    success "Разметка диска завершена"
+}
+
+# ============================================================================
+# ФАЗА 6: МОНТИРОВАНИЕ РАЗДЕЛОВ
+# ============================================================================
+phase "Монтирование файловых систем" {
+    message "Монтирование корневого раздела..."
+    delay 200
+    
+    mount "/dev/nvme0n1p3" to="/mnt"
+    
+    message "Создание точек монтирования..."
+    create_dir "/mnt/boot"
+    create_dir "/mnt/boot/efi"
+    create_dir "/mnt/home"
+    create_dir "/mnt/var"
+    create_dir "/mnt/tmp"
+    set_permission "/mnt/tmp" mode="1777"
+    
+    message "Монтирование EFI раздела..."
+    mount "/dev/nvme0n1p1" to="/mnt/boot/efi"
+    
+    message "Монтирование home раздела..."
+    mount "/dev/nvme0n1p4" to="/mnt/home"
+    
+    message "Активация раздела подкачки..."
+    run_script "swapon /dev/nvme0n1p2"
+    delay 200
+    
+    progress 38
+    success "Файловые системы смонтированы"
+}
+
+# ============================================================================
+# ФАЗА 7: НАСТРОЙКА PACMAN И ЗЕРКАЛ
+# ============================================================================
+phase "Настройка pacman" {
+    message "Резервное копирование mirrorlist..."
+    copy_file "/etc/pacman.d/mirrorlist" to="/etc/pacman.d/mirrorlist.backup"
+    
+    message "Обновление списка зеркал..."
+    delay 300
+    
+    message "Выбор оптимальных зеркал по скорости..."
+    run_script "reflector --country Russia,Germany,Netherlands --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist"
+    delay 500
+    
+    message "Инициализация ключей pacman..."
+    run_script "pacman-key --init"
+    delay 400
+    
+    message "Загрузка ключей Arch Linux..."
+    run_script "pacman-key --populate archlinux"
+    delay 400
+    
+    message "Обновление базы данных пакетов..."
+    run_script "pacman -Syy"
+    delay 500
+    
+    configure key="ParallelDownloads" value="5"
+    configure key="Color" value="enabled"
+    configure key="VerbosePkgLists" value="enabled"
+    
+    progress 45
+    success "Pacman настроен"
+}
+
+# ============================================================================
+# ФАЗА 8: УСТАНОВКА БАЗОВОЙ СИСТЕМЫ
+# ============================================================================
+phase "Установка базовой системы (pacstrap)" {
+    message "Загрузка и установка базовых пакетов..."
+    message "Это может занять несколько минут..."
+    delay 500
+    
+    download "https://mirror.yandex.ru/archlinux/core/os/x86_64/base-2024.01.01-1-x86_64.pkg.tar.zst" size=2048
+    download "https://mirror.yandex.ru/archlinux/core/os/x86_64/linux-6.6.8.arch1-1-x86_64.pkg.tar.zst" size=131072
+    download "https://mirror.yandex.ru/archlinux/core/os/x86_64/linux-firmware-20231211.f2e52a1-1-any.pkg.tar.zst" size=409600
+    
+    message "Установка base пакетов..."
+    install_packages "base linux linux-firmware linux-headers"
+    delay 300
+    
+    message "Установка инструментов разработки..."
+    install_packages "base-devel git vim nano wget curl"
+    delay 300
+    
+    message "Установка сетевых утилит..."
+    install_packages "networkmanager dhcpcd iwd wpa_supplicant"
+    delay 200
+    
+    message "Установка загрузчика..."
+    install_packages "grub efibootmgr os-prober"
+    delay 200
+    
+    message "Установка системных утилит..."
+    install_packages "sudo zsh bash-completion man-db man-pages texinfo"
+    delay 200
+    
+    message "Установка файловых систем..."
+    install_packages "dosfstools ntfs-3g btrfs-progs e2fsprogs"
+    delay 200
+    
+    progress 58
+    success "Базовая система установлена"
+}
+
+# ============================================================================
+# ФАЗА 9: ГЕНЕРАЦИЯ FSTAB
+# ============================================================================
+phase "Генерация fstab" {
+    message "Генерация таблицы файловых систем..."
+    delay 300
+    
+    run_script "genfstab -U /mnt >> /mnt/etc/fstab"
+    generate_fstab
+    
+    message "Проверка fstab..."
+    check_integrity "/mnt/etc/fstab"
+    
+    message "Добавление параметров оптимизации..."
+    configure key="noatime" value="enabled for SSD"
+    configure key="discard" value="enabled for TRIM"
+    
+    progress 62
+    success "fstab сгенерирован"
+}
+
+# ============================================================================
+# ФАЗА 10: НАСТРОЙКА СИСТЕМЫ (CHROOT)
+# ============================================================================
+phase "Настройка системы (arch-chroot)" {
+    message "Вход в chroot окружение..."
+    delay 300
+    
+    message "Установка часового пояса..."
+    set_timezone "Europe/Moscow"
+    symlink "/usr/share/zoneinfo/Europe/Moscow" to="/etc/localtime"
+    run_script "hwclock --systohc"
+    delay 100
+    
+    message "Настройка локализации..."
+    set_locale "ru_RU.UTF-8"
+    set_locale "en_US.UTF-8"
+    write_config "/mnt/etc/locale.conf" content="LANG=ru_RU.UTF-8\nLC_COLLATE=C"
+    delay 100
+    
+    message "Генерация локалей..."
+    run_script "locale-gen"
+    delay 400
+    
+    message "Настройка консольного шрифта..."
+    write_config "/mnt/etc/vconsole.conf" content="KEYMAP=ru\nFONT=cyr-sun16"
+    
+    message "Установка имени хоста..."
+    set_hostname "archlinux"
+    delay 100
+    
+    message "Настройка /etc/hosts..."
+    write_config "/mnt/etc/hosts" content="127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\tarchlinux.localdomain\tarchlinux"
+    set_permission "/mnt/etc/hosts" mode="644"
+    delay 200
+    
+    progress 68
+    success "Базовая настройка завершена"
+}
+
+# ============================================================================
+# ФАЗА 11: УСТАНОВКА ДРАЙВЕРОВ
+# ============================================================================
+phase "Установка драйверов" {
+    message "Определение необходимых драйверов..."
+    detect_gpu
+    detect_drivers
+    delay 200
+    
+    message "Установка драйверов видеокарты NVIDIA..."
+    install_driver "nvidia-dkms"
+    install_driver "nvidia-utils"
+    install_driver "lib32-nvidia-utils"
+    install_driver "nvidia-settings"
+    delay 200
+    
+    message "Установка драйверов Intel (резервные)..."
+    install_driver "mesa"
+    install_driver "lib32-mesa"
+    install_driver "vulkan-intel"
+    delay 200
+    
+    message "Установка звуковых драйверов..."
+    install_packages "alsa-utils alsa-plugins"
+    delay 100
+    
+    message "Установка драйверов Bluetooth..."
+    install_packages "bluez bluez-utils"
+    delay 100
+    
+    progress 74
+    success "Драйверы установлены"
+}
+
+# ============================================================================
+# ФАЗА 12: УСТАНОВКА ДОПОЛНИТЕЛЬНЫХ ПАКЕТОВ
+# ============================================================================
+phase "Установка дополнительных пакетов" {
+    message "Установка звуковой подсистемы PipeWire..."
+    install_packages "pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber"
+    delay 200
+    
+    message "Установка X.org сервера..."
+    install_packages "xorg xorg-server xorg-xinit xorg-apps"
+    delay 300
+    
+    message "Установка графического окружения KDE Plasma..."
+    install_packages "plasma-meta plasma-wayland-session"
+    delay 400
+    
+    message "Установка приложений KDE..."
+    install_packages "kde-applications-meta sddm sddm-kcm"
+    delay 400
+    
+    message "Установка шрифтов..."
+    install_packages "ttf-dejavu ttf-liberation noto-fonts noto-fonts-cjk noto-fonts-emoji ttf-jetbrains-mono"
+    delay 200
+    
+    message "Установка браузеров и приложений..."
+    install_packages "firefox chromium vlc gimp libreoffice-fresh"
+    delay 300
+    
+    message "Установка терминальных утилит..."
+    install_packages "htop neofetch tree unzip p7zip"
+    delay 200
+    
+    progress 82
+    success "Дополнительные пакеты установлены"
+}
+
+# ============================================================================
+# ФАЗА 13: НАСТРОЙКА INITRAMFS
+# ============================================================================
+phase "Настройка initramfs" {
+    message "Настройка mkinitcpio.conf..."
+    delay 200
+    
+    message "Добавление модулей NVIDIA в initramfs..."
+    configure key="MODULES" value="(nvidia nvidia_modeset nvidia_uvm nvidia_drm)"
+    delay 100
+    
+    message "Добавление хуков..."
+    configure key="HOOKS" value="(base udev autodetect modconf kms keyboard keymap consolefont block filesystems fsck)"
+    delay 100
+    
+    message "Настройка сжатия..."
+    configure key="COMPRESSION" value="zstd"
+    configure key="COMPRESSION_OPTIONS" value="(-19)"
+    
+    message "Генерация initramfs..."
+    update_initramfs
+    delay 500
+    
+    check_integrity "/mnt/boot/initramfs-linux.img"
+    check_integrity "/mnt/boot/initramfs-linux-fallback.img"
+    
+    progress 87
+    success "initramfs сгенерирован"
+}
+
+# ============================================================================
+# ФАЗА 14: УСТАНОВКА ЗАГРУЗЧИКА
+# ============================================================================
+phase "Установка загрузчика GRUB" {
+    message "Установка GRUB для UEFI..."
+    delay 300
+    
+    install_bootloader "/dev/nvme0n1"
+    delay 400
+    
+    message "Настройка параметров GRUB..."
+    configure key="GRUB_DEFAULT" value="0"
+    configure key="GRUB_TIMEOUT" value="5"
+    configure key="GRUB_CMDLINE_LINUX_DEFAULT" value="loglevel=3 quiet nvidia-drm.modeset=1"
+    configure key="GRUB_CMDLINE_LINUX" value=""
+    configure key="GRUB_PRELOAD_MODULES" value="part_gpt part_msdos"
+    configure key="GRUB_DISABLE_OS_PROBER" value="false"
+    delay 200
+    
+    message "Генерация конфигурации GRUB..."
+    update_grub
+    delay 400
+    
+    message "Проверка загрузочных записей UEFI..."
+    run_script "efibootmgr -v"
+    delay 300
+    
+    check_integrity "/mnt/boot/grub/grub.cfg"
+    verify_signature "/mnt/boot/efi/EFI/arch/grubx64.efi"
+    
+    progress 92
+    success "Загрузчик установлен"
+}
+
+# ============================================================================
+# ФАЗА 15: СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ
+# ============================================================================
+phase "Создание пользователей" {
+    message "Настройка root пользователя..."
+    set_password "root"
+    delay 200
+    
+    message "Создание основного пользователя..."
+    create_user "user" groups="wheel,audio,video,storage,optical,network,power"
+    delay 200
+    
+    message "Установка пароля пользователя..."
+    set_password "user"
+    delay 200
+    
+    message "Настройка sudo..."
+    write_config "/mnt/etc/sudoers.d/wheel" content="%wheel ALL=(ALL:ALL) ALL"
+    set_permission "/mnt/etc/sudoers.d/wheel" mode="440"
+    delay 100
+    
+    message "Настройка оболочки по умолчанию..."
+    run_script "chsh -s /bin/zsh user"
+    
+    message "Создание домашних директорий..."
+    create_dir "/mnt/home/user/Documents"
+    create_dir "/mnt/home/user/Downloads"
+    create_dir "/mnt/home/user/Pictures"
+    create_dir "/mnt/home/user/Videos"
+    create_dir "/mnt/home/user/Music"
+    create_dir "/mnt/home/user/.config"
+    set_permission "/mnt/home/user" mode="700"
+    
+    progress 95
+    success "Пользователь создан"
+}
+
+# ============================================================================
+# ФАЗА 16: ВКЛЮЧЕНИЕ СЕРВИСОВ
+# ============================================================================
+phase "Включение системных сервисов" {
+    message "Активация сервисов для автозапуска..."
+    delay 200
+    
+    enable_service "NetworkManager"
+    enable_service "sddm"
+    enable_service "bluetooth"
+    enable_service "cups.socket"
+    enable_service "fstrim.timer"
+    enable_service "systemd-timesyncd"
+    enable_service "paccache.timer"
+    
+    message "Настройка сетевых сервисов..."
+    network_config "eth0" config="dhcp"
+    
+    message "Настройка firewall..."
+    firewall_rule "allow ssh"
+    firewall_rule "allow http https"
+    
+    progress 97
+    success "Сервисы активированы"
+}
+
+# ============================================================================
+# ФАЗА 17: ФИНАЛЬНЫЕ ПРОВЕРКИ
+# ============================================================================
+phase "Финальные проверки" {
+    message "Проверка целостности системы..."
+    delay 300
+    
+    check_integrity "/mnt/boot/vmlinuz-linux"
+    check_integrity "/mnt/boot/initramfs-linux.img"
+    check_integrity "/mnt/boot/grub/grub.cfg"
+    check_integrity "/mnt/usr/bin/bash"
+    check_integrity "/mnt/usr/lib/systemd/systemd"
+    
+    message "Проверка загрузочной записи..."
+    verify_signature "/mnt/boot/efi/EFI/arch/grubx64.efi"
+    delay 200
+    
+    message "Тест системных компонентов..."
+    run_test "Файловая система" duration=400
+    run_test "Сетевое подключение" duration=500
+    run_test "Systemd сервисы" duration=400
+    
+    message "Размонтирование файловых систем..."
+    unmount "/mnt/home"
+    unmount "/mnt/boot/efi"
+    unmount "/mnt"
+    delay 300
+    
+    progress 100
+    success "Все проверки пройдены!"
+}
+
+# ============================================================================
+# ФАЗА 18: ЗАВЕРШЕНИЕ
+# ============================================================================
+phase "Завершение установки" {
+    message "══════════════════════════════════════════════════════════════"
+    message "              УСТАНОВКА ARCH LINUX ЗАВЕРШЕНА!"
+    message "══════════════════════════════════════════════════════════════"
+    delay 300
+    
+    message ""
+    message "Установленные компоненты:"
+    message "  • Ядро Linux 6.6.8"
+    message "  • Графическая среда KDE Plasma 5.27"
+    message "  • Драйверы NVIDIA (DKMS)"
+    message "  • Звуковая система PipeWire"
+    message "  • Сетевой менеджер NetworkManager"
+    message "  • Браузеры: Firefox, Chromium"
+    message "  • Офис: LibreOffice"
+    message ""
+    message "Учётные записи:"
+    message "  • root (суперпользователь)"
+    message "  • user (основной пользователь, группа wheel)"
+    message ""
+    message "Для завершения установки:"
+    message "  1. Извлеките установочный носитель"
+    message "  2. Перезагрузите систему: reboot"
+    message "  3. Войдите под пользователем 'user'"
+    message ""
+    delay 500
+    
+    success "Система готова к первому запуску!"
+}

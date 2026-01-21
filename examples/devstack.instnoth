@@ -1,0 +1,215 @@
+# ========================================
+# Developer Stack Installation Script
+# Полный стек разработчика с зависимостями
+# ========================================
+
+package: "Developer Stack"
+version: "2024.01"
+description: "Полный стек для разработки: ОС + Python + Node.js + Docker + инструменты"
+author: "InstNoth Team"
+
+# Зависимости - устанавливаются в правильном порядке
+# Linux → Python → Node.js → Docker → затем этот пакет
+depends: "linux.instnoth" "python.instnoth" "nodejs.instnoth" "docker.instnoth"
+
+# ----------------------------------------
+# Фаза 1: Верификация базовой системы
+# ----------------------------------------
+phase "Верификация базовой системы" {
+    message "Проверка установленных компонентов..."
+    delay 300
+    
+    detect_os
+    detect_kernel
+    
+    message "Проверка зависимостей..."
+    check_dep "python3"
+    check_dep "pip3"
+    check_dep "node"
+    check_dep "npm"
+    check_dep "docker"
+    check_dep "docker-compose"
+    
+    progress 10
+    success "Базовая система готова"
+}
+
+# ----------------------------------------
+# Фаза 2: Установка IDE и редакторов
+# ----------------------------------------
+phase "Установка IDE и редакторов" {
+    message "Установка Visual Studio Code..."
+    download "https://code.visualstudio.com/sha/download?build=stable&os=linux-x64" size=102400
+    install_dep "code" version="1.85.1"
+    delay 300
+    
+    message "Установка расширений VS Code..."
+    install_packages "python ms-python.python"
+    install_packages "node dbaeumer.vscode-eslint"
+    install_packages "docker ms-azuretools.vscode-docker"
+    install_packages "git eamodio.gitlens"
+    delay 200
+    
+    message "Установка Vim и плагинов..."
+    install_packages "vim vim-plug"
+    delay 200
+    
+    progress 25
+    success "IDE установлены"
+}
+
+# ----------------------------------------
+# Фаза 3: Установка инструментов разработки
+# ----------------------------------------
+phase "Установка инструментов разработки" {
+    message "Установка Git и инструментов..."
+    install_packages "git git-lfs gh"
+    delay 200
+    
+    message "Настройка Git..."
+    configure key="user.name" value="Developer"
+    configure key="user.email" value="dev@example.com"
+    configure key="core.editor" value="vim"
+    configure key="init.defaultBranch" value="main"
+    delay 100
+    
+    message "Установка утилит сборки..."
+    install_packages "make cmake ninja-build"
+    delay 200
+    
+    message "Установка отладчиков..."
+    install_packages "gdb lldb"
+    delay 200
+    
+    progress 40
+    success "Инструменты разработки установлены"
+}
+
+# ----------------------------------------
+# Фаза 4: Настройка Python окружения
+# ----------------------------------------
+phase "Настройка Python окружения" {
+    message "Установка virtualenv и pipenv..."
+    run_script "pip3 install virtualenv pipenv"
+    delay 300
+    
+    message "Установка инструментов разработки Python..."
+    install_packages "black flake8 mypy pytest"
+    delay 300
+    
+    message "Установка Jupyter..."
+    run_script "pip3 install jupyterlab notebook"
+    delay 400
+    
+    message "Установка научных библиотек..."
+    install_packages "numpy pandas matplotlib scikit-learn"
+    delay 300
+    
+    progress 55
+    success "Python окружение настроено"
+}
+
+# ----------------------------------------
+# Фаза 5: Настройка Node.js окружения
+# ----------------------------------------
+phase "Настройка Node.js окружения" {
+    message "Установка глобальных пакетов npm..."
+    install_packages "typescript ts-node nodemon jest"
+    delay 300
+    
+    message "Установка фреймворков..."
+    install_packages "create-react-app @vue/cli @angular/cli"
+    delay 300
+    
+    message "Установка инструментов сборки..."
+    install_packages "webpack vite esbuild"
+    delay 200
+    
+    message "Установка линтеров..."
+    install_packages "eslint prettier"
+    delay 200
+    
+    progress 70
+    success "Node.js окружение настроено"
+}
+
+# ----------------------------------------
+# Фаза 6: Настройка Docker окружения
+# ----------------------------------------
+phase "Настройка Docker окружения" {
+    message "Установка docker-compose..."
+    check_dep "docker-compose"
+    delay 100
+    
+    message "Установка Docker инструментов..."
+    install_packages "lazydocker dive ctop"
+    delay 300
+    
+    message "Загрузка базовых образов..."
+    message "  Pulling python:3.12-slim..."
+    delay 400
+    message "  Pulling node:20-alpine..."
+    delay 400
+    message "  Pulling postgres:16..."
+    delay 400
+    message "  Pulling redis:7..."
+    delay 300
+    
+    message "Создание сети разработки..."
+    run_script "docker network create devnet"
+    delay 200
+    
+    progress 85
+    success "Docker окружение настроено"
+}
+
+# ----------------------------------------
+# Фаза 7: Установка баз данных (контейнеры)
+# ----------------------------------------
+phase "Настройка баз данных" {
+    message "Запуск PostgreSQL контейнера..."
+    run_script "docker run -d --name postgres-dev -e POSTGRES_PASSWORD=devpass -p 5432:5432 postgres:16"
+    delay 500
+    
+    message "Запуск Redis контейнера..."
+    run_script "docker run -d --name redis-dev -p 6379:6379 redis:7"
+    delay 400
+    
+    message "Запуск MongoDB контейнера..."
+    run_script "docker run -d --name mongo-dev -p 27017:27017 mongo:7"
+    delay 400
+    
+    message "Установка клиентов БД..."
+    install_packages "postgresql-client redis-tools mongosh"
+    delay 200
+    
+    progress 95
+    success "Базы данных запущены"
+}
+
+# ----------------------------------------
+# Фаза 8: Финальная настройка
+# ----------------------------------------
+phase "Финальная настройка" {
+    message "Создание структуры проектов..."
+    create_dir "~/projects"
+    create_dir "~/projects/python"
+    create_dir "~/projects/node"
+    create_dir "~/projects/docker"
+    
+    message "Настройка shell..."
+    write_config "~/.bashrc.d/devstack" content="# DevStack aliases\nalias py='python3'\nalias pip='pip3'\nalias dc='docker-compose'\nalias g='git'\nalias code='code .'"
+    
+    message "Генерация SSH ключей..."
+    run_script "ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ''"
+    delay 300
+    
+    message "Финальные тесты..."
+    run_test "Python environment" duration=300
+    run_test "Node.js environment" duration=300
+    run_test "Docker environment" duration=300
+    run_test "Database connections" duration=400
+    
+    progress 100
+    success "Developer Stack полностью установлен и готов к работе!"
+}

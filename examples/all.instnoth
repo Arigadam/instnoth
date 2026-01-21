@@ -1,0 +1,71 @@
+# ========================================
+# All-in-One Installation Script
+# Устанавливает Python, Node.js и Docker
+# через систему зависимостей
+# ========================================
+
+package: "All-in-One Dev Bundle"
+version: "1.0.0"
+description: "Полный набор для разработки: Python, Node.js, Docker"
+author: "InstNoth Team"
+
+# Зависимости - будут установлены ПЕРЕД этим пакетом
+depends: "python.instnoth" "nodejs.instnoth" "docker.instnoth"
+
+# ----------------------------------------
+# Фаза 1: Проверка установленных компонентов
+# ----------------------------------------
+phase "Проверка установленных компонентов" {
+    message "Проверка Python..."
+    check_dep "python3"
+    message "  python3 --version: Python 3.12.1"
+    delay 100
+    
+    message "Проверка Node.js..."
+    check_dep "node"
+    message "  node --version: v20.10.0"
+    delay 100
+    
+    message "Проверка Docker..."
+    check_dep "docker"
+    message "  docker --version: Docker 24.0.7"
+    delay 100
+    
+    progress 50
+    success "Все компоненты установлены"
+}
+
+# ----------------------------------------
+# Фаза 2: Настройка интеграции
+# ----------------------------------------
+phase "Настройка интеграции" {
+    message "Создание общих директорий..."
+    create_dir "~/dev"
+    create_dir "~/dev/projects"
+    create_dir "~/dev/docker"
+    
+    message "Настройка переменных окружения..."
+    configure key="PYTHON_HOME" value="/usr/local"
+    configure key="NODE_HOME" value="/usr/local"
+    configure key="DOCKER_HOST" value="unix:///var/run/docker.sock"
+    
+    message "Создание aliases..."
+    write_config "~/.bash_aliases" content="alias py='python3'\nalias node='node'\nalias dc='docker-compose'\nalias dps='docker ps'"
+    
+    progress 80
+    success "Интеграция настроена"
+}
+
+# ----------------------------------------
+# Фаза 3: Финальная проверка
+# ----------------------------------------
+phase "Финальная проверка" {
+    message "Запуск тестов интеграции..."
+    
+    run_test "Python интерпретатор" duration=300
+    run_test "Node.js runtime" duration=300
+    run_test "Docker daemon" duration=300
+    
+    progress 100
+    success "All-in-One Dev Bundle готов к использованию!"
+}

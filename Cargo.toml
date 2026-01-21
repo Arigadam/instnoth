@@ -1,0 +1,12 @@
+[package]
+name = "instnoth"
+version = "1.0.0"
+edition = "2021"
+description = "A fake installation simulator using .instnoth scripts"
+authors = ["InstNoth Team"]
+
+[dependencies]
+colored = "2.1"
+rand = "0.8"
+clap = { version = "4.4", features = ["derive"] }
+indicatif = "0.17"
